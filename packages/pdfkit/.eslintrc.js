@@ -34,10 +34,11 @@ module.exports = {
     'prefer-destructuring': 0,
     'max-classes-per-file': 0,
     'no-restricted-syntax': 0,
-    'no-use-before-define': 1,
+    'no-use-before-define': 0,
     'no-buffer-constructor': 1,
     'class-methods-use-this': 0,
     'import/no-mutable-exports': 0,
-    'lines-between-class-members': 0
+    'lines-between-class-members': 0,
+    'no-console': 0
   }
 };

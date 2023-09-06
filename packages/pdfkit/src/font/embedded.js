@@ -1,18 +1,11 @@
-import PDFObject from '../object';
-
-const toHex = function(...codePoints) {
-  const codes = Array.from(codePoints).map(code =>
-    `0000${code.toString(16)}`.slice(-4)
-  );
-
-  return codes.join('');
+const toHex = num => {
+  return `0000${num.toString(16)}`.slice(-4);
 };
 
 const createEmbeddedFont = PDFFont =>
   class EmbeddedFont extends PDFFont {
     constructor(document, font, id) {
       super();
-
       this.document = document;
       this.font = font;
       this.id = id;
@@ -49,6 +42,9 @@ const createEmbeddedFont = PDFFont =>
     }
 
     layoutCached(text) {
+      if (!this.layoutCache) {
+        return this.layoutRun(text);
+      }
       let cached;
       if ((cached = this.layoutCache[text])) {
         return cached;
@@ -68,8 +64,8 @@ const createEmbeddedFont = PDFFont =>
         return this.layoutRun(text, features);
       }
 
-      const glyphs = onlyWidth ? null : [];
-      const positions = onlyWidth ? null : [];
+      let glyphs = onlyWidth ? null : [];
+      let positions = onlyWidth ? null : [];
       let advanceWidth = 0;
 
       // Split the string by words to increase cache efficiency.
@@ -84,8 +80,8 @@ const createEmbeddedFont = PDFFont =>
         ) {
           const run = this.layoutCached(text.slice(last, ++index));
           if (!onlyWidth) {
-            glyphs.push(...Array.from(run.glyphs || []));
-            positions.push(...Array.from(run.positions || []));
+            glyphs = glyphs.concat(run.glyphs);
+            positions = positions.concat(run.positions);
           }
 
           advanceWidth += run.advanceWidth;
@@ -111,9 +107,7 @@ const createEmbeddedFont = PDFFont =>
           this.widths[gid] = glyph.advanceWidth * this.scale;
         }
         if (this.unicode[gid] == null) {
-          this.unicode[gid] = this.font._cmapProcessor.codePointsForGlyph(
-            glyph.id
-          );
+          this.unicode[gid] = glyph.codePoints;
         }
       }
 
@@ -131,9 +125,7 @@ const createEmbeddedFont = PDFFont =>
           this.widths[gid] = glyph.advanceWidth * this.scale;
         }
         if (this.unicode[gid] == null) {
-          this.unicode[gid] = this.font._cmapProcessor.codePointsForGlyph(
-            glyph.id
-          );
+          this.unicode[gid] = glyph.codePoints;
         }
       }
 
@@ -208,9 +200,9 @@ const createEmbeddedFont = PDFFont =>
 
       descriptor.end();
 
-      const descendantFont = this.document.ref({
+      const descendantFontData = {
         Type: 'Font',
-        Subtype: isCFF ? 'CIDFontType0' : 'CIDFontType2',
+        Subtype: 'CIDFontType0',
         BaseFont: name,
         CIDSystemInfo: {
           Registry: new String('Adobe'),
@@ -219,7 +211,14 @@ const createEmbeddedFont = PDFFont =>
         },
         FontDescriptor: descriptor,
         W: [0, this.widths]
-      });
+      };
+
+      if (!isCFF) {
+        descendantFontData.Subtype = 'CIDFontType2';
+        descendantFontData.CIDToGIDMap = 'Identity';
+      }
+
+      const descendantFont = this.document.ref(descendantFontData);
 
       descendantFont.end();
 
@@ -242,9 +241,11 @@ const createEmbeddedFont = PDFFont =>
       const cmap = this.document.ref();
 
       const entries = [];
-      for (let codePoints of Array.from(this.unicode)) {
+      for (let codePoints of this.unicode) {
         const encoded = [];
-        for (let value of Array.from(codePoints)) {
+
+        // encode codePoints to utf16
+        for (let value of codePoints) {
           if (value > 0xffff) {
             value -= 0x10000;
             encoded.push(toHex(((value >>> 10) & 0x3ff) | 0xd800));
@@ -252,9 +253,8 @@ const createEmbeddedFont = PDFFont =>
           }
 
           encoded.push(toHex(value));
-
-          entries.push(`<${encoded.join(' ')}>`);
         }
+        entries.push(`<${encoded.join(' ')}>`);
       }
 
       cmap.end(`\
@@ -262,9 +262,9 @@ const createEmbeddedFont = PDFFont =>
   12 dict begin
   begincmap
   /CIDSystemInfo <<
-  /Registry (Adobe)
-  /Ordering (UCS)
-  /Supplement 0
+    /Registry (Adobe)
+    /Ordering (UCS)
+    /Supplement 0
   >> def
   /CMapName /Adobe-Identity-UCS def
   /CMapType 2 def
