@@ -1,6 +1,6 @@
 import './index.css';
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import ReactDOM from 'react-dom';
 import { PDFViewer } from '@react-pdf/renderer';
 
@@ -27,8 +27,6 @@ const EXAMPLES = {
 const Viewer = () => {
   const [example, setExample] = useState('pageWrap');
 
-  console.log(example);
-
   const handleExampleChange = e => {
     setExample(e.target.dataset.name);
   };
@@ -45,6 +43,9 @@ const Viewer = () => {
             key={value}
             data-name={value}
             role="presentation"
+            style={{
+              cursor: 'pointer',
+            }}
             onClick={handleExampleChange}
           >
             {value}

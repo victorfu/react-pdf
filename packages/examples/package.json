@@ -7,8 +7,13 @@
   "homepage": "https://github.com/diegomura/react-pdf#readme",
   "repository": "git@github.com:diegomura/react-pdf.git",
   "main": "lib",
+  "browserslist": [
+    "> 1%",
+    "not dead"
+  ],
   "scripts": {
-    "test": "jest"
+    "test": "jest",
+    "start": "parcel serve ./src/index.html -p 3000"
   },
   "dependencies": {
     "@react-pdf/renderer": "^3.1.12",
@@ -17,5 +22,8 @@
   "peerDependencies": {
     "react": "^16.8.6 || ^17.0.0",
     "react-dom": "^16.8.6 || ^17.0.0"
+  },
+  "devDependencies": {
+    "parcel-bundler": "^1.12.5"
   }
 }
