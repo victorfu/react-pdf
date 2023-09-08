@@ -46,6 +46,7 @@ const createEmbeddedFont = PDFFont =>
         return this.layoutRun(text);
       }
       let cached;
+      // eslint-disable-next-line no-cond-assign
       if ((cached = this.layoutCache[text])) {
         return cached;
       }
@@ -73,9 +74,10 @@ const createEmbeddedFont = PDFFont =>
       let last = 0;
       let index = 0;
       while (index <= text.length) {
-        var needle;
+        let needle;
         if (
           (index === text.length && last < index) ||
+          // eslint-disable-next-line no-cond-assign
           ((needle = text.charAt(index)), [' ', '\t'].includes(needle))
         ) {
           const run = this.layoutCached(text.slice(last, ++index));
@@ -169,7 +171,7 @@ const createEmbeddedFont = PDFFont =>
 
       // generate a random tag (6 uppercase letters. 65 is the char code for 'A')
       const tag = [0, 1, 2, 3, 4, 5]
-        .map(i => String.fromCharCode(Math.random() * 26 + 65))
+        .map(() => String.fromCharCode(Math.random() * 26 + 65))
         .join('');
       const name = tag + '+' + this.font.postscriptName;
 
@@ -240,10 +242,21 @@ const createEmbeddedFont = PDFFont =>
     toUnicodeCmap() {
       const cmap = this.document.ref();
 
-      const entries = [];
-      for (let codePoints of this.unicode) {
+      let entries = [];
+      let unicodeMap =
+        '/CIDInit /ProcSet findresource begin\n12 dict begin\nbegincmap\n/CIDSystemInfo <<\n  /Registry (Adobe)\n  /Ordering (UCS)\n  /Supplement 0\n>> def\n/CMapName /Adobe-Identity-UCS def\n/CMapType 2 def\n1 begincodespacerange\n<0000><ffff>\nendcodespacerange';
+      for (let [index, codePoints] of this.unicode.entries()) {
         const encoded = [];
-
+        if (entries.length >= 100) {
+          // bfranges.push(entries);
+          unicodeMap +=
+            '\n' +
+            entries.length +
+            ' beginbfchar\n' +
+            entries.join('\n') +
+            '\nendbfchar';
+          entries = [];
+        }
         // encode codePoints to utf16
         for (let value of codePoints) {
           if (value > 0xffff) {
@@ -251,34 +264,23 @@ const createEmbeddedFont = PDFFont =>
             encoded.push(toHex(((value >>> 10) & 0x3ff) | 0xd800));
             value = 0xdc00 | (value & 0x3ff);
           }
-
           encoded.push(toHex(value));
         }
-        entries.push(`<${encoded.join(' ')}>`);
-      }
 
-      cmap.end(`\
-  /CIDInit /ProcSet findresource begin
-  12 dict begin
-  begincmap
-  /CIDSystemInfo <<
-    /Registry (Adobe)
-    /Ordering (UCS)
-    /Supplement 0
-  >> def
-  /CMapName /Adobe-Identity-UCS def
-  /CMapType 2 def
-  1 begincodespacerange
-  <0000><ffff>
-  endcodespacerange
-  1 beginbfrange
-  <0000> <${toHex(entries.length - 1)}> [${entries.join(' ')}]
-  endbfrange
-  endcmap
-  CMapName currentdict /CMap defineresource pop
-  end
-  end\
-  `);
+        // eslint-disable-next-line no-useless-concat
+        entries.push('<' + toHex(index) + '>' + '<' + encoded.join(' ') + '>');
+      }
+      if (entries.length) {
+        unicodeMap +=
+          '\n' +
+          entries.length +
+          ' beginbfchar\n' +
+          entries.join('\n') +
+          '\nendbfchar\n';
+      }
+      unicodeMap +=
+        'endcmap\nCMapName currentdict /CMap defineresource pop\nend\nend';
+      cmap.end(unicodeMap);
 
       return cmap;
     }
